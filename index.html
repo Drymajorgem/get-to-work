@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChessPulse — Chess Improvement Dashboard</title>
-  <link rel="icon" type="image/webp" href="get-to-work-logo.svg">
+<link rel="icon" type="image/webp" href="get-to-work-logo.svg">
 <style>
 :root{
   --bg:#0b1020;--panel:#121a2d;--panel2:#18223a;--text:#f4f7ff;--muted:#8f9bb5;
@@ -49,7 +49,7 @@ footer{margin-top:25px;color:var(--muted);font-size:12px;line-height:1.6}
     <p>Connect your Chess.com and Lichess usernames, compare ratings, inspect recent results, and get simple improvement signals.</p>
     <div class="inputs">
       <div><label>Chess.com username</label><input id="chessUser" placeholder="e.g. hikaru"></div>
-      <div><label>Lichess username</label><input id="lichessUser" placeholder="e.g. DrNykterstein"></div>
+      <div><label>Lichess username</label><input id="lichessUser" placeholder="e.g. kebzo"></div>
     </div>
     <button onclick="loadDashboard()">Analyze my chess ♟</button>
     <div id="status" class="status"></div>
@@ -191,7 +191,7 @@ function render(){
     const last5=allGames.slice(0,5).filter(g=>g.result==="loss").length;
     insights.push(["🧠 Review habit",`${last5} of your last 5 games were losses. Start by analyzing those games for recurring mistakes.`]);
   }
-  insights.push(["🎯 Next step","V2 can run Stockfish on your games and detect blunders, missed tactics, opening problems and time-management patterns."]);
+  insights.push(["🎯 Next step","run Stockfish on your games and detect blunders, missed tactics, opening problems and time-management patterns."]);
   $("insights").innerHTML=insights.map(x=>`<div class="insight"><b>${x[0]}</b><span>${x[1]}</span></div>`).join("");
   $("focusTitle").textContent=losses>wins?"Review your losses":"Build consistency";
   $("focusText").textContent=losses>wins?"Analyze 3 recent losses before starting another session.":"Play a small focused session, then review your most difficult game.";
