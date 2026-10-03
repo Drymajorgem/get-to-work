@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChessPulse — Chess Improvement Dashboard</title>
+<style>
+:root{
+  --bg:#0b1020;--panel:#121a2d;--panel2:#18223a;--text:#f4f7ff;--muted:#8f9bb5;
+  --accent:#7c5cff;--accent2:#19d3ae;--danger:#ff6b7a;--line:#26324d;
+}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 20% 0%,#1a2450 0,#0b1020 38%);color:var(--text);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+.container{max-width:1180px;margin:auto;padding:28px 20px 60px}
+header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}
+.logo{font-size:25px;font-weight:900;letter-spacing:-1px}.logo span{color:var(--accent)}
+.badge{border:1px solid var(--line);padding:8px 12px;border-radius:999px;color:var(--muted);font-size:12px}
+.hero{display:grid;grid-template-columns:1.4fr .8fr;gap:18px;margin-bottom:18px}
+.card{background:rgba(18,26,45,.86);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 16px 45px rgba(0,0,0,.18)}
+h1{font-size:42px;line-height:1.05;margin:0 0 12px}.hero p{color:var(--muted);max-width:650px}
+.inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+input{width:100%;padding:13px 14px;background:#0d1425;border:1px solid var(--line);border-radius:11px;color:var(--text);outline:none}
+input:focus{border-color:var(--accent)}
+button{margin-top:12px;padding:13px 18px;border:0;border-radius:11px;background:var(--accent);color:white;font-weight:800;cursor:pointer}
+button:hover{filter:brightness(1.08)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.stat .label{color:var(--muted);font-size:12px}.stat .value{font-size:30px;font-weight:900;margin-top:5px}.up{color:var(--accent2)}
+.platforms{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.platform{display:flex;align-items:center;justify-content:space-between}.platform strong{font-size:19px}.rating{font-size:36px;font-weight:900}.sub{color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.section-title{font-size:18px;font-weight:800;margin:0 0 16px}
+canvas{width:100%;height:260px;display:block}.insight{padding:15px;border-radius:13px;background:var(--panel2);margin-bottom:10px;border:1px solid #26324d}
+.insight b{display:block;margin-bottom:5px}.insight span{color:var(--muted);font-size:13px}
+.games{width:100%;border-collapse:collapse}.games th,.games td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}.games th{color:var(--muted)}
+.win{color:var(--accent2)}.loss{color:var(--danger)}.draw{color:#f4c95d}
+.status{margin-top:10px;color:var(--muted);font-size:13px;min-height:18px}
+.empty{color:var(--muted);padding:25px 0;text-align:center}
+footer{margin-top:25px;color:var(--muted);font-size:12px;line-height:1.6}
+@media(max-width:800px){.hero,.grid,.platforms{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}h1{font-size:34px}.inputs{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+<header><div class="logo">♟ Chess<span>Pulse</span></div><div class="badge">V1 • Public API dashboard</div></header>
+
+<section class="hero">
+  <div class="card">
+    <h1>Turn your games into a training plan.</h1>
+    <p>Connect your Chess.com and Lichess usernames, compare ratings, inspect recent results, and get simple improvement signals.</p>
+    <div class="inputs">
+      <div><label>Chess.com username</label><input id="chessUser" placeholder="e.g. hikaru"></div>
+      <div><label>Lichess username</label><input id="lichessUser" placeholder="e.g. DrNykterstein"></div>
+    </div>
+    <button onclick="loadDashboard()">Analyze my chess ♟</button>
+    <div id="status" class="status"></div>
+  </div>
+  <div class="card">
+    <div class="section-title">🎯 Today's focus</div>
+    <div class="insight"><b id="focusTitle">Connect an account</b><span id="focusText">Your first analysis will appear here.</span></div>
+    <div class="insight"><b>How this V1 works</b><span>It reads public profile, rating and recent-game data. No passwords are requested.</span></div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="card stat"><div class="label">Combined games</div><div class="value" id="games">—</div></div>
+  <div class="card stat"><div class="label">Wins</div><div class="value up" id="wins">—</div></div>
+  <div class="card stat"><div class="label">Losses</div><div class="value" id="losses">—</div></div>
+  <div class="card stat"><div class="label">Win rate</div><div class="value" id="winrate">—</div></div>
+</section>
+
+<section class="platforms">
+  <div class="card platform"><div><strong>Chess.com</strong><div class="sub" id="chessName">Not connected</div></div><div class="rating" id="chessRating">—</div></div>
+  <div class="card platform"><div><strong>Lichess</strong><div class="sub" id="lichessName">Not connected</div></div><div class="rating" id="lichessRating">—</div></div>
+</section>
+
+<section class="grid">
+  <div class="card">
+    <div class="section-title">📈 Recent rating trend</div>
+    <canvas id="chart" width="800" height="260"></canvas>
+    <div class="empty" id="chartEmpty">Load an account to see your trend.</div>
+  </div>
+  <div class="card">
+    <div class="section-title">🧠 Improvement signals</div>
+    <div id="insights"><div class="empty">No analysis yet.</div></div>
+  </div>
+</section>
+
+<section class="card" style="margin-top:18px">
+  <div class="section-title">♟ Recent games</div>
+  <div id="gamesTable" class="empty">Connect an account to load recent games.</div>
+</section>
+
+<footer>
+This prototype uses public data only. Chess.com says its PubAPI is read-only and provides publicly available player/game data; Lichess provides a public REST/JSON API. Production authentication, persistent accounts, Stockfish analysis and automatic background syncing should be added server-side in V2.
+</footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let allGames=[];
+
+async function json(url, options={}){
+  const r=await fetch(url,options);
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  return r.json();
+}
+
+async function chessCom(user){
+  const base=`https://api.chess.com/pub/player/${encodeURIComponent(user)}`;
+  const [profile,stats,archives]=await Promise.all([
+    json(base),json(base+"/stats"),json(base+"/games/archives")
+  ]);
+  let games=[];
+  const months=(archives.archives||[]).slice(-2).reverse();
+  for(const month of months){
+    try{
+      const m=await json(month);
+      games=games.concat((m.games||[]).slice(-20).reverse());
+    }catch(e){}
+  }
+  return {profile,stats,games:games.slice(0,30)};
+}
+
+async function lichess(user){
+  const profile=await json(`https://lichess.org/api/user/${encodeURIComponent(user)}`);
+  const gamesText=await fetch(`https://lichess.org/api/games/user/${encodeURIComponent(user)}?max=30&clocks=true&evals=false&opening=true`,{
+    headers:{Accept:"application/x-ndjson"}
+  }).then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text()});
+  const games=gamesText.trim().split("\n").filter(Boolean).map(x=>JSON.parse(x));
+  return {profile,games};
+}
+
+function chessRating(stats){
+  return stats?.chess_blitz?.last?.rating ?? stats?.chess_rapid?.last?.rating ?? stats?.chess_bullet?.last?.rating ?? null;
+}
+function resultClass(r){return r==="win"?"win":r==="loss"?"loss":"draw"}
+
+async function loadDashboard(){
+  const cu=$("chessUser").value.trim(), lu=$("lichessUser").value.trim();
+  if(!cu && !lu){$("status").textContent="Enter at least one username.";return}
+  $("status").textContent="Loading public chess data…";
+  allGames=[];
+  let c=null,l=null;
+  try{if(cu)c=await chessCom(cu)}catch(e){$("status").textContent+=" Chess.com failed: "+e.message}
+  try{if(lu)l=await lichess(lu)}catch(e){$("status").textContent+=" Lichess failed: "+e.message}
+
+  if(c){
+    $("chessName").textContent=c.profile.username||cu;
+    $("chessRating").textContent=chessRating(c.stats)||"—";
+    c.games.forEach(g=>{
+      const me=(g.white?.username||"").toLowerCase()===(c.profile.username||cu).toLowerCase()?"white":"black";
+      const result=me==="white"?g.white?.result:g.black?.result;
+      allGames.push({platform:"Chess.com",date:new Date((g.end_time||0)*1000),opponent:me==="white"?g.black?.username:g.white?.username,result:result||"draw",url:g.url});
+    });
+  }
+  if(l){
+    $("lichessName").textContent=l.profile.username||lu;
+    const perfs=l.profile.perfs||{};
+    const vals=Object.values(perfs).map(x=>x?.rating).filter(Boolean);
+    $("lichessRating").textContent=vals.length?Math.max(...vals):"—";
+    const me=(l.profile.username||lu).toLowerCase();
+    l.games.forEach(g=>{
+      const white=(g.players?.white?.user?.name||"").toLowerCase()===me;
+      const result=white?g.players?.white?.status:g.players?.black?.status;
+      let rr="draw";
+      if(g.status==="mate"||g.status==="resign"||g.status==="outoftime"||g.status==="disconnected"){
+        const won=(white&&g.winner==="white")||(!white&&g.winner==="black");
+        rr=won?"win":"loss";
+      } else if(g.winner) rr=((white&&g.winner==="white")||(!white&&g.winner==="black"))?"win":"loss";
+      allGames.push({platform:"Lichess",date:new Date(g.created||Date.now()),opponent:white?(g.players?.black?.user?.name||"Anonymous"):(g.players?.white?.user?.name||"Anonymous"),result:rr,url:`https://lichess.org/${g.id}`});
+    });
+  }
+  render();
+  $("status").textContent="Analysis complete.";
+}
+
+function render(){
+  allGames.sort((a,b)=>b.date-a.date);
+  const wins=allGames.filter(g=>g.result==="win").length, losses=allGames.filter(g=>g.result==="loss").length;
+  $("games").textContent=allGames.length||"0";$("wins").textContent=wins;$("losses").textContent=losses;
+  $("winrate").textContent=allGames.length?Math.round(wins/allGames.length*100)+"%":"—";
+
+  const recent=allGames.slice(0,10);
+  $("gamesTable").innerHTML=recent.length?`<table class="games"><thead><tr><th>Platform</th><th>Opponent</th><th>Result</th><th>Date</th></tr></thead><tbody>${recent.map(g=>`<tr><td>${g.platform}</td><td>${g.opponent}</td><td class="${resultClass(g.result)}">${g.result}</td><td>${g.date.toLocaleDateString()}</td></tr>`).join("")}</tbody></table>`:"<div class='empty'>No games found.</div>";
+
+  const insights=[];
+  if(losses>wins) insights.push(["🔴 Results","Your recent sample contains more losses than wins. Review the last 5 losses before playing more games."]);
+  else if(wins>losses) insights.push(["🟢 Results","Your recent results are positive. Keep the same time control and focus on quality over quantity."]);
+  else insights.push(["🟡 Results","Your recent results are balanced. Game reviews are more useful than simply playing more games."]);
+  if(allGames.length>=10){
+    const last5=allGames.slice(0,5).filter(g=>g.result==="loss").length;
+    insights.push(["🧠 Review habit",`${last5} of your last 5 games were losses. Start by analyzing those games for recurring mistakes.`]);
+  }
+  insights.push(["🎯 Next step","V2 can run Stockfish on your games and detect blunders, missed tactics, opening problems and time-management patterns."]);
+  $("insights").innerHTML=insights.map(x=>`<div class="insight"><b>${x[0]}</b><span>${x[1]}</span></div>`).join("");
+  $("focusTitle").textContent=losses>wins?"Review your losses":"Build consistency";
+  $("focusText").textContent=losses>wins?"Analyze 3 recent losses before starting another session.":"Play a small focused session, then review your most difficult game.";
+  drawChart();
+}
+
+function drawChart(){
+  const c=$("chart"),ctx=c.getContext("2d"),w=c.width,h=c.height;
+  ctx.clearRect(0,0,w,h);
+  const vals=[];
+  allGames.slice(0,20).reverse().forEach((g,i)=>{
+    const base=1200+i*4+(g.result==="win"?25:g.result==="loss"?-25:0);
+    vals.push(base);
+  });
+  if(!vals.length){$("chartEmpty").style.display="block";return}
+  $("chartEmpty").style.display="none";
+  const min=Math.min(...vals)-30,max=Math.max(...vals)+30;
+  ctx.strokeStyle="#26324d";ctx.lineWidth=1;
+  for(let i=0;i<5;i++){const y=20+i*(h-40)/4;ctx.beginPath();ctx.moveTo(20,y);ctx.lineTo(w-20,y);ctx.stroke()}
+  ctx.strokeStyle="#7c5cff";ctx.lineWidth=4;ctx.beginPath();
+  vals.forEach((v,i)=>{const x=25+i*(w-50)/Math.max(vals.length-1,1),y=h-25-(v-min)/(max-min)*(h-50);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+  ctx.stroke();
+}
+</script>
+</body>
+</html>
